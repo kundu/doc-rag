@@ -6,11 +6,13 @@ This system processes PDF files, generates embeddings using a local AI model, an
 
 - Bulk PDF processing
 - Automatic text extraction from PDFs
-- Semantic search across all processed documents
+- AI-powered text embeddings generation for semantic understanding
+- Vector-based semantic search across all processed documents
 - Progress tracking and beautiful console output
 - Skips already processed files
 - Detailed processing summaries
 - Similarity scores for search results
+- Efficient storage of embeddings in PostgreSQL using JSON format
 
 ## Prerequisites
 
@@ -162,4 +164,4 @@ results = search_similar_content("your search query")
 
 ## Support
 
-For support, please [create an issue](your-repo-issues-url) or contact [your-contact-info]. 
+For support, please [create an issue](https://github.com/kundu/doc-rag/issues/new) or contact [Sauvik Kundu](https://www.linkedin.com/in/sauvik-kundu). 
