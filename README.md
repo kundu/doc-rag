@@ -235,5 +235,5 @@ For support, please [create an issue](https://github.com/kundu/doc-rag/issues/ne
 
 ## Visuals
 
-![Processing Flow](output/processing_flow.png)
-![System Architecture](output/system_architecture.png) 
+![Processing Flow](output/doc-processing.png)
+![System Architecture](output/qa.png) 
