@@ -59,7 +59,6 @@ Thumbs.db
 # Project specific
 *.pkl
 embeddings/
-output/
 results/
 
 # Jupyter Notebook

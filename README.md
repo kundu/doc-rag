@@ -102,6 +102,10 @@ DB_NAME=pdf_storage     # Database name
 # AI Embedding Service Configuration
 AI_API_URL=http://127.0.0.1:1234/v1/embeddings  # Your embedding service URL
 AI_MODEL=text-embedding-nomic-embed-text-v1.5@f32  # Model name
+
+# QA System Configuration
+QA_API_URL=http://localhost:1234/v1/chat/completions
+QA_MODEL=qwen2-0.5b-instruct
 ```
 
 ## Usage
@@ -114,7 +118,12 @@ cp your_pdfs/*.pdf pdf/
 
 2. Run the processor:
 ```bash
-python pdf_processor.py
+bash -c 'source venv/bin/activate && python pdf_processor.py'
+```
+
+3. Run the QA system:
+```bash
+bash -c 'source venv/bin/activate && python qa_system.py'
 ```
 
 The script will:
@@ -140,6 +149,7 @@ results = search_similar_content("your search query")
 ├── pdf/                  # Directory for PDF files
 ├── models.py            # Database models and enums
 ├── pdf_processor.py     # Main processing script
+├── qa_system.py         # Question answering system
 ├── requirements.txt     # Python dependencies
 ├── .env                # Environment variables
 └── README.md           # This file
@@ -221,7 +231,9 @@ The system includes comprehensive error handling:
 ## Support
 
 For support, please [create an issue](https://github.com/kundu/doc-rag/issues/new) or contact [Sauvik Kundu](https://www.linkedin.com/in/sauvik-kundu).
+ 
 
-## License
+## Visuals
 
-[Your chosen license] 
+![Processing Flow](output/processing_flow.png)
+![System Architecture](output/system_architecture.png) 
