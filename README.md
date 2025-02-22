@@ -1,17 +1,30 @@
 # PDF Embedding and Search System
 
-This system processes PDF files, generates embeddings using a local AI model, and stores them in PostgreSQL for semantic search capabilities. It allows you to search through multiple PDFs and find relevant content based on semantic similarity.
+This system processes PDF files, generates embeddings using a local AI model, and stores them in PostgreSQL for semantic search capabilities. It features advanced OCR capabilities, semantic chunking, and hierarchical document understanding.
 
 ## Features
 
-- Bulk PDF processing
-- Automatic text extraction from PDFs
+- Bulk PDF processing with progress tracking
+- Automatic text and image extraction from PDFs
+- Advanced OCR with image preprocessing:
+  - Automatic image format detection and conversion
+  - Image enhancement for better OCR quality
+  - Support for multiple image formats (JPEG, PNG, GIF, BMP, TIFF)
+  - Confidence scoring for OCR results
+  - Automatic image resizing and contrast enhancement
 - AI-powered text embeddings generation for semantic understanding
+- Hierarchical document processing:
+  - Document-level embeddings
+  - Section-level chunking
+  - Paragraph-level analysis
+  - Element-level processing (tables, images, forms)
+- Semantic metadata extraction:
+  - Entity recognition
+  - Key phrase extraction
+  - Sentiment analysis
 - Vector-based semantic search across all processed documents
-- Progress tracking and beautiful console output
-- Skips already processed files
-- Detailed processing summaries
-- Similarity scores for search results
+- Detailed processing summaries and error handling
+- Progress tracking with rich console output
 - Efficient storage of embeddings in PostgreSQL using JSON format
 
 ## Prerequisites
@@ -19,7 +32,8 @@ This system processes PDF files, generates embeddings using a local AI model, an
 1. Python 3.8+
 2. PostgreSQL 16+ with pgvector extension
 3. Local AI embedding service running on port 1234
-4. `pip` and `venv` modules
+4. Tesseract OCR engine
+5. `pip` and `venv` modules
 
 ## Installation
 
@@ -40,7 +54,21 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. Install PostgreSQL and pgvector extension:
+4. Install Tesseract OCR:
+```bash
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install tesseract-ocr
+sudo apt-get install tesseract-ocr-eng  # English language pack
+
+# macOS
+brew install tesseract
+
+# Windows
+# Download installer from https://github.com/UB-Mannheim/tesseract/wiki
+```
+
+5. Install PostgreSQL and pgvector extension:
 ```bash
 # Ubuntu/Debian
 sudo apt-get update
@@ -50,7 +78,7 @@ sudo apt-get install postgresql-16 postgresql-16-pgvector
 sudo -u postgres psql -d pdf_storage -c "CREATE EXTENSION IF NOT EXISTS vector;"
 ```
 
-5. Set up environment variables:
+6. Set up environment variables:
 ```bash
 # Copy the example environment file
 cp .env.example .env
@@ -91,10 +119,11 @@ python pdf_processor.py
 
 The script will:
 - Process all new PDF files in the `pdf` directory
-- Skip already processed files
-- Show progress for each file
-- Display a summary table after processing
-- Perform a sample search
+- Extract and OCR text from both document content and images
+- Generate hierarchical embeddings
+- Extract semantic metadata
+- Store all information in the database
+- Show detailed progress and processing summaries
 
 3. Search through processed PDFs:
 ```python
@@ -109,29 +138,55 @@ results = search_similar_content("your search query")
 ```
 .
 ├── pdf/                  # Directory for PDF files
-├── models.py            # Database models
+├── models.py            # Database models and enums
 ├── pdf_processor.py     # Main processing script
 ├── requirements.txt     # Python dependencies
-├── .env                # Environment variables (create from .env.example)
+├── .env                # Environment variables
 └── README.md           # This file
 ```
 
 ## Database Schema
 
-- `pdf_files`: Stores PDF file metadata
+- `pdf_files`: Stores PDF file metadata and document-level embeddings
   - id (Primary Key)
   - filename
   - file_path
   - upload_date
   - file_size
   - total_pages
+  - pdf_metadata (JSON)
+  - document_embedding (JSON)
 
-- `pdf_embeddings`: Stores page content and embeddings
+- `pdf_embeddings`: Stores content embeddings and metadata
   - id (Primary Key)
   - pdf_file_id (Foreign Key)
   - page_number
+  - hierarchy_level (DOCUMENT, SECTION, PARAGRAPH, ELEMENT)
+  - content_type (TEXT, TABLE, IMAGE, FORM)
   - page_content
-  - embedding (JSON array)
+  - embedding (JSON)
+  - position (JSON)
+  - content_format (JSON)
+  - context
+  - semantic_metadata (JSON)
+  - confidence
+
+## Error Handling
+
+The system includes comprehensive error handling:
+- Graceful handling of corrupted PDFs
+- Recovery from OCR failures
+- Fallback chunking for large documents
+- Image format conversion and validation
+- Detailed error reporting and logging
+
+## Performance Optimization
+
+- Efficient memory usage through streaming processing
+- Image preprocessing for optimal OCR results
+- Chunked processing of large documents
+- Configurable chunk sizes and limits
+- Background processing capabilities
 
 ## Contributing
 
@@ -141,10 +196,6 @@ results = search_similar_content("your search query")
 4. Push to the branch
 5. Create a new Pull Request
 
-## License
-
-[Your chosen license]
-
 ## Troubleshooting
 
 1. **Database Connection Issues**
@@ -152,16 +203,25 @@ results = search_similar_content("your search query")
    - Verify database credentials in `.env`
    - Check if pgvector extension is installed
 
-2. **Embedding Service Issues**
+2. **OCR Issues**
+   - Verify Tesseract OCR is installed
+   - Check image quality and format
+   - Adjust preprocessing parameters if needed
+
+3. **Embedding Service Issues**
    - Verify the embedding service is running
    - Check the API URL in `.env`
    - Ensure the model name is correct
 
-3. **PDF Processing Issues**
-   - Ensure PDF files are readable
-   - Check file permissions
-   - Verify sufficient disk space
+4. **Memory Issues**
+   - Adjust chunk sizes in the configuration
+   - Process fewer files simultaneously
+   - Check available system resources
 
 ## Support
 
-For support, please [create an issue](https://github.com/kundu/doc-rag/issues/new) or contact [Sauvik Kundu](https://www.linkedin.com/in/sauvik-kundu). 
+For support, please [create an issue](https://github.com/kundu/doc-rag/issues/new) or contact [Sauvik Kundu](https://www.linkedin.com/in/sauvik-kundu).
+
+## License
+
+[Your chosen license] 
