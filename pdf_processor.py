@@ -503,11 +503,13 @@ def process_pdf(file_path):
         existing_pdf = session.query(PDFFile).filter_by(filename=filename).first()
         if existing_pdf:
             # Delete all embeddings associated with this PDF
-            session.query(PDFEmbedding).filter_by(pdf_file_id=existing_pdf.id).delete()
+            # session.query(PDFEmbedding).filter_by(pdf_file_id=existing_pdf.id).delete()
             # Delete the PDF file record
-            session.delete(existing_pdf)
-            session.commit()
-            console.print(f"[yellow]Deleted existing records for {filename}[/yellow]")
+            # session.delete(existing_pdf)
+            # session.commit()
+            # console.print(f"[yellow]Deleted existing records for {filename}[/yellow]")
+            console.print(f"[yellow]Skipping {filename} because it already exists[/yellow]")
+            return True
 
         with Progress() as progress:
             with open(file_path, 'rb') as file:

@@ -39,8 +39,8 @@ This system processes PDF files, generates embeddings using a local AI model, an
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd <repository-name>
+git clone https://github.com/kundu/doc-rag.git
+cd doc-rag
 ```
 
 2. Create and activate virtual environment:
