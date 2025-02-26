@@ -40,6 +40,7 @@ DB_NAME = os.getenv('DB_NAME')
 # AI API configuration
 AI_API_URL = os.getenv('AI_API_URL')
 AI_MODEL = os.getenv('AI_MODEL')
+POD_API_KEY = os.getenv('POD_API_KEY')
 
 # Create database connection
 DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
@@ -64,7 +65,7 @@ def get_embedding(text, context=None):
             
         response = requests.post(
             AI_API_URL,
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {POD_API_KEY}"},
             json={
                 "model": AI_MODEL,
                 "input": input_text
@@ -369,61 +370,89 @@ def semantic_chunk(text: str, max_chunk_size: int = 1000) -> List[Dict[str, Any]
 
 def create_hierarchical_embeddings(text: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
     """Create embeddings at different hierarchical levels."""
+    if not text or not text.strip():
+        return {
+            'document_embedding': None,
+            'chunks': []
+        }
+
+    
     try:
         # Document level embedding - limit text size for embedding
-        max_text_length = 10000  # Limit text length for document embedding
+        max_text_length = 5000  # Reduced from 10000 to prevent timeouts
         doc_text = text[:max_text_length] if len(text) > max_text_length else text
-        doc_embedding = get_embedding(doc_text, context="full document")
         
-        # Create semantic chunks with size limit
+        # Add timeout for document embedding
         try:
-            chunks = semantic_chunk(text, max_chunk_size=500)  # Reduced chunk size
-        except Exception as chunk_error:
-            console.print(f"[yellow]Warning: Error in semantic chunking: {chunk_error}. Falling back to simple chunking.[/yellow]")
+            doc_embedding = get_embedding(doc_text, context="full document")
+        except Exception as e:
+            console.print(f"[red]Error getting document embedding: {e}[/red]")
+            doc_embedding = None
+
+        # Create semantic chunks with size limit and timeout
+        chunks = []
+        try:
+            # Add timeout for chunking
+            import signal
+            from contextlib import contextmanager
+
+            @contextmanager
+            def timeout(seconds):
+                def signal_handler(signum, frame):
+                    raise TimeoutError("Operation timed out")
+                signal.signal(signal.SIGALRM, signal_handler)
+                signal.alarm(seconds)
+                try:
+                    yield
+                finally:
+                    signal.alarm(0)
+
+            with timeout(30):  # 30 seconds timeout for chunking
+                chunks = semantic_chunk(text, max_chunk_size=300)  # Reduced chunk size further
+        except TimeoutError:
+            console.print("[yellow]Chunking timed out, using simple chunking[/yellow]")
             # Fallback to simple chunking
             words = text.split()
-            chunks = []
-            current_chunk = []
-            current_length = 0
-            
-            for word in words:
-                if current_length + len(word) > 500:  # Simple 500-character chunks
-                    if current_chunk:
-                        chunks.append({
-                            'text': ' '.join(current_chunk),
-                            'type': 'paragraph',
-                            'metadata': {
-                                'length': current_length,
-                                'sentences': len(current_chunk)
-                            }
-                        })
-                    current_chunk = [word]
-                    current_length = len(word)
-                else:
-                    current_chunk.append(word)
-                    current_length += len(word) + 1  # +1 for space
-            
-            if current_chunk:
-                chunks.append({
-                    'text': ' '.join(current_chunk),
-                    'type': 'paragraph',
-                    'metadata': {
-                        'length': current_length,
-                        'sentences': len(current_chunk)
-                    }
-                })
-        
-        # Process each chunk with error handling
+            chunk_size = 300
+            chunks = [{
+                'text': ' '.join(words[i:i + chunk_size]),
+                'type': 'paragraph',
+                'metadata': {
+                    'length': len(' '.join(words[i:i + chunk_size])),
+                    'sentences': 1
+                }
+            } for i in range(0, len(words), chunk_size)]
+        except Exception as chunk_error:
+            console.print(f"[yellow]Error in semantic chunking: {chunk_error}. Using simple chunking.[/yellow]")
+            # Fallback to simple chunking
+            words = text.split()
+            chunk_size = 300
+            chunks = [{
+                'text': ' '.join(words[i:i + chunk_size]),
+                'type': 'paragraph',
+                'metadata': {
+                    'length': len(' '.join(words[i:i + chunk_size])),
+                    'sentences': 1
+                }
+            } for i in range(0, len(words), chunk_size)]
+
+        # Process each chunk with error handling and timeout
         processed_chunks = []
         for chunk in chunks:
             try:
+                if not chunk['text'].strip():
+                    continue
+                    
                 # Get chunk embedding with context
                 chunk_context = {
                     'type': chunk['type'],
-                    'document_context': str(context or {})[:1000],  # Limit context size
+                    'document_context': str(context or {})[:500],  # Further limit context size
                     'metadata': chunk['metadata']
                 }
-                chunk_embedding = get_embedding(chunk['text'], context=str(chunk_context))
+                
+                # Add timeout for chunk embedding
+                with timeout(10):  # 10 seconds timeout per chunk
+                    chunk_embedding = get_embedding(chunk['text'], context=str(chunk_context))
                 
                 if chunk_embedding:  # Only add if embedding was successful
                     processed_chunks.append({
@@ -432,19 +461,22 @@ def create_hierarchical_embeddings(text: str, context: Dict[str, Any] = None) ->
                         'embedding': chunk_embedding,
                         'metadata': chunk['metadata']
                     })
-            except Exception as chunk_error:
-                console.print(f"[yellow]Warning: Error processing chunk: {chunk_error}[/yellow]")
+            except TimeoutError:
+                console.print(f"[yellow]Chunk embedding timed out for chunk of length {len(chunk['text'])}[/yellow]")
                 continue
-        
+            except Exception as chunk_error:
+                console.print(f"[yellow]Error processing chunk: {chunk_error}[/yellow]")
+                continue
+
         return {
             'document_embedding': doc_embedding,
             'chunks': processed_chunks
         }
     except Exception as e:
-        console.print(f"[yellow]Warning: Error in hierarchical embedding creation: {e}. Returning simplified structure.[/yellow]")
+        console.print(f"[red]Critical error in hierarchical embedding creation: {e}[/red]")
         # Return simplified structure in case of error
         return {
-            'document_embedding': get_embedding(text[:5000]) if text else None,  # Use first 5000 chars only
+            'document_embedding': None,
             'chunks': []
         }
 
@@ -530,11 +562,8 @@ def process_pdf(file_path):
                 except Exception as text_error:
                     console.print(f"[yellow]Warning: Error extracting text from {filename}: {text_error}[/yellow]")
                     full_text = ""
-                
-                # Create document-level embedding
-                doc_embeddings = create_hierarchical_embeddings(full_text)
-                
-                # Convert metadata to JSON-serializable format
+
+                # Create PDF file record without document embedding
                 try:
                     pdf_metadata = make_json_serializable(pdf_reader.metadata)
                 except Exception as e:
@@ -547,7 +576,7 @@ def process_pdf(file_path):
                     file_size=os.path.getsize(file_path),
                     total_pages=num_pages,
                     pdf_metadata=pdf_metadata,
-                    document_embedding=doc_embeddings['document_embedding']
+                    document_embedding=None  # No longer needed
                 )
                 session.add(pdf_file)
                 session.commit()
