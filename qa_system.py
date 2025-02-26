@@ -28,6 +28,7 @@ EMBEDDING_API_URL = os.getenv('AI_API_URL')
 EMBEDDING_MODEL = os.getenv('AI_MODEL')
 QA_API_URL = os.getenv('QA_API_URL')
 QA_MODEL = os.getenv('QA_MODEL')
+POD_API_KEY = os.getenv('POD_API_KEY')
 
 # Create database connection
 DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
@@ -43,7 +44,7 @@ def get_embedding(text, context=None):
             
         response = requests.post(
             EMBEDDING_API_URL,
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {POD_API_KEY}"},
             json={
                 "model": EMBEDDING_MODEL,
                 "input": input_text
@@ -134,7 +135,7 @@ def get_llm_response(query, context_docs):
         # Call the LLM API
         response = requests.post(
             QA_API_URL,
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {POD_API_KEY}"},
             json={
                 "model": QA_MODEL,
                 "messages": messages,
